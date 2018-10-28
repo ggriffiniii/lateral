@@ -1,0 +1,10 @@
+[package]
+name = "stoppable_listener"
+version = "0.1.0"
+authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+
+[dependencies]
+mio = "0.6"
+
+[dev-dependencies]
+tempfile = "3"

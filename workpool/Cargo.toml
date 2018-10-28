@@ -1,0 +1,8 @@
+[package]
+name = "workpool"
+version = "0.1.0"
+authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+
+[dependencies]
+crossbeam-channel = "0.2"
+published_value = { path = "../published_value" }

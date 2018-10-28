@@ -1,0 +1,28 @@
+[workspace]
+members = ["published_value", "stoppable_listener", "workpool"]
+
+[package]
+name = "lateral"
+version = "0.1.0"
+authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+
+[dev-dependencies]
+tempfile = "3"
+
+[dependencies]
+byteorder = "1.2"
+crossbeam-channel = "0.2"
+dirs = "1.0"
+libc = "0.2"
+log = "0.4"
+mio = "0.6"
+nix = "0.11"
+pretty_env_logger = "0.2"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+stoppable_listener = { path = "./stoppable_listener" }
+structopt = "0.2"
+structopt-derive = "0.2"
+take_mut = "0.2"
+workpool = { path = "./workpool" }
