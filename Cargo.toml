@@ -5,6 +5,10 @@ members = ["published_value", "stoppable_listener", "workpool"]
 name = "lateral"
 version = "0.1.0"
 authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+description = "A simple process parallelizer to make lives better at the commandline."
+documentation = "https://docs.rs/lateral/"
+repository = "https://github.com/ggriffiniii/lateral"
+license = "MIT"
 
 [dev-dependencies]
 tempfile = "3"
@@ -21,8 +25,8 @@ pretty_env_logger = "0.2"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-stoppable_listener = { path = "./stoppable_listener" }
+stoppable_listener = { path = "./stoppable_listener", version = "0.1.0" }
 structopt = "0.2"
 structopt-derive = "0.2"
 take_mut = "0.2"
-workpool = { path = "./workpool" }
+workpool = { path = "./workpool", version = "0.1.0" }

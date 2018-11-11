@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "published_value"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "quick-error"
@@ -846,7 +846,7 @@ name = "workpool"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "published_value 0.1.0",
+ "published_value 0.1.1",
 ]
 
 [[package]]
