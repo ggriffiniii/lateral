@@ -2,7 +2,11 @@
 name = "workpool"
 version = "0.1.0"
 authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+description = "Distribute work to a set of threads and wait for completion"
+documentation = "https://docs.rs/workpool/"
+repository = "https://github.com/ggriffiniii/lateral"
+license = "MIT"
 
 [dependencies]
 crossbeam-channel = "0.2"
-published_value = { path = "../published_value" }
+published_value = { path = "../published_value", version = "0.1.1" }
