@@ -2,6 +2,10 @@
 name = "stoppable_listener"
 version = "0.1.0"
 authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
+description = "Provide the ability to stop a TCP or Unix listener."
+documentation = "https://docs.rs/stoppable_listener/"
+repository = "https://github.com/ggriffiniii/lateral"
+license = "MIT"
 
 [dependencies]
 mio = "0.6"
