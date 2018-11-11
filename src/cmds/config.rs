@@ -1,8 +1,5 @@
 use std::os::unix::net::UnixStream;
-use {
-    net::{read_resp, write_req},
-    ConfigResp, Error, GlobalOpts, Req,
-};
+use {resp, Error, GlobalOpts, Req};
 
 /// Options for the config subcommand.
 #[derive(StructOpt, Debug)]
@@ -13,13 +10,10 @@ pub struct Opts {
 
 pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
     debug!("config command");
-    let mut socket = UnixStream::connect(&global_opts.socket_path())?;
-    write_req(
-        &mut socket,
-        &Req::Config {
-            parallel: opts.parallel,
-        },
-    )?;
-    read_resp::<_, ConfigResp>(&socket)?;
+    let socket = UnixStream::connect(&global_opts.socket_path())?;
+    Req::Config {
+        parallel: opts.parallel,
+    }.write_to(&socket)?;
+    resp::read_from::<_, resp::Config>(&socket)?;
     Ok(())
 }

@@ -1,15 +1,10 @@
 use crossbeam_channel as channel;
-use nix::unistd::{fork, getpid, ForkResult};
 use std;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use workpool;
-use {
-    net::{read_req, write_resp, ClosedOr},
-    ConfigResp, Error, GetPidResp, GlobalOpts, KillResp, RunResp, ServerRunSpec, ShutdownResp,
-    WaitResp,
-};
+use {resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
 
 // Options for the start subcommand.
 #[derive(StructOpt, Debug, Clone)]
@@ -21,10 +16,12 @@ pub struct Opts {
 }
 
 pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
+    use nix::unistd::{fork, setpgid, ForkResult, Pid};
     debug!("start command");
     if let Some(parent) = global_opts.socket_path().parent() {
         std::fs::create_dir_all(parent)?;
     }
+    setpgid(Pid::from_raw(0), Pid::from_raw(0))?;
     let listener = UnixListener::bind(&global_opts.socket_path())?;
     if !opts.foreground {
         match fork()? {
@@ -46,14 +43,13 @@ struct ServerData {
     state: State,
 }
 
+type WorkPool = workpool::dynamic_pool::DynamicPool<ServerRunSpec, RunSpecWorker, RunSpecReducer>;
+type WaitHandle = workpool::dynamic_pool::WaitHandle<bool>;
+
 #[derive(Debug)]
 enum State {
-    Running {
-        runner: workpool::dynamic_pool::DynamicPool<ServerRunSpec, RunSpecWorker, RunSpecReducer>,
-    },
-    Waiting {
-        wait_handle: workpool::dynamic_pool::WaitHandle<bool>,
-    },
+    Running { runner: WorkPool },
+    Waiting { wait_handle: WaitHandle },
 }
 
 impl Server {
@@ -70,7 +66,7 @@ impl Server {
             .set_concurrency_limit(opts.parallel.into())
             .create_dynamic_pool();
         let srv = Server(Arc::new(Mutex::new(ServerData {
-            global_opts: global_opts.clone(),
+            global_opts: (*global_opts).clone(),
             opts,
             stop_handle,
             state: State::Running { runner },
@@ -87,13 +83,7 @@ impl Server {
         let (tx, rx) = channel::bounded(0);
         let mut threads = Vec::new();
         for accept_result in incoming {
-            let (socket, _addr) = match accept_result {
-                Err(e) => {
-                    debug!("error accepting socket: {}", e);
-                    continue;
-                }
-                Ok(x) => x,
-            };
+            let (socket, _addr) = accept_result?;
             select! {
                 send(tx, socket) => {
                     debug!("reusing idle thread");
@@ -129,91 +119,58 @@ impl Server {
         use Req::*;
         debug!("new socket from: {:?}", socket.peer_addr());
         loop {
-            let req = match read_req(&socket) {
-                Ok(ClosedOr::Other(req)) => req,
-                Ok(ClosedOr::Closed) => return Ok(()),
+            let req = match ServerReq::read_from(&socket) {
+                Ok(SocketClosedOr::Data(req)) => req,
+                Ok(SocketClosedOr::SocketClosed) => return Ok(()),
                 Err(e) => return Err(e),
             };
             match req {
-                Config { parallel } => write_resp(&mut socket, self.handle_config(parallel))?,
-                Run(run_spec) => write_resp(&mut socket, self.handle_run(run_spec))?,
-                Wait => write_resp(&mut socket, self.handle_wait())?,
-                Shutdown => write_resp(&mut socket, self.handle_shutdown())?,
-                GetPid => write_resp(&mut socket, self.handle_getpid())?,
-                Kill => write_resp(&mut socket, self.handle_kill())?,
+                Config { parallel } => resp::write(&mut socket, self.handle_config(parallel))?,
+                Run(run_spec) => resp::write(&mut socket, self.handle_run(run_spec))?,
+                Wait => resp::write(&mut socket, self.handle_wait())?,
+                Shutdown => resp::write(&mut socket, self.handle_shutdown())?,
+                GetPid => resp::write(&mut socket, self.handle_getpid())?,
+                Kill => resp::write(&mut socket, self.handle_kill())?,
             }
         }
     }
 
-    fn handle_config(&self, parallel: Option<i32>) -> ConfigResp {
-        use self::State::*;
+    fn handle_config(&self, parallel: Option<i32>) -> resp::Config {
         debug!("handle_config");
         if let Some(parallel) = parallel {
-            let mut this = self.lock();
-            this.opts.parallel = parallel;
-            match this.state {
-                Running { ref runner } => runner.set_concurrency_limit(parallel.into()),
-                Waiting { ref wait_handle } => wait_handle.set_concurrency_limit(parallel.into()),
-            }
+            self.lock().set_parallel(parallel);
         }
     }
 
-    fn handle_run(&self, run_spec: ServerRunSpec) -> RunResp {
-        use self::State::*;
+    fn handle_run(&self, run_spec: ServerRunSpec) -> resp::Run {
         debug!("handle_run");
-        let this = self.lock();
-        match this.state {
-            Running { ref runner } => runner.add(run_spec),
-            Waiting { .. } => {
-                return Err(Error::new("wait in progress. No new command can be run."))
-            }
-        };
-        Ok(())
+        self.lock().handle_run(run_spec)
     }
 
-    fn handle_wait(&self) -> WaitResp {
-        use self::State::*;
+    fn handle_wait(&self) -> resp::Wait {
         debug!("handle_wait");
-        let wait_handle = {
-            let mut this = self.lock();
-            ::take_mut::take(&mut this.state, |state| match state {
-                Running { runner } => Waiting {
-                    wait_handle: runner.wait_handle(),
-                },
-                state => state,
-            });
-            if let Waiting { ref wait_handle } = this.state {
-                wait_handle.clone()
-            } else {
-                panic!("uh oh");
-            }
-        };
+        let wait_handle = self.lock().handle_wait();
         debug!("waiting");
         *wait_handle.wait()
     }
 
-    fn handle_shutdown(&self) -> ShutdownResp {
-        use self::State::*;
+    fn handle_shutdown(&self) -> resp::Shutdown {
         debug!("handle_shutdown");
-        let wait_handle = {
-            let mut this = self.lock();
-            match this.state {
-                Running { .. } => return Err(Error::new("shutdown can only happen after wait")),
-                Waiting { ref wait_handle } => wait_handle.clone(),
-            }
-        };
+        let wait_handle = self
+            .lock()
+            .get_wait_handle()
+            .ok_or_else(|| Error::new("shutdown can only happen after wait"))?;
         wait_handle.wait();
-        let this = self.lock();
-        this.stop_handle.stop_listening()?;
+        self.lock().stop_handle.stop_listening()?;
         Ok(())
     }
 
-    fn handle_getpid(&self) -> GetPidResp {
+    fn handle_getpid(&self) -> resp::GetPid {
         debug!("handle_getpid");
-        getpid().into()
+        nix::unistd::getpid().into()
     }
 
-    fn handle_kill(&self) -> KillResp {
+    fn handle_kill(&self) -> resp::Kill {
         use libc::pid_t;
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::{getpgid, Pid};
@@ -221,6 +178,50 @@ impl Server {
         debug!("handle_kill");
         let pgid: pid_t = getpgid(None).unwrap().into();
         let _ = kill(Pid::from_raw(-pgid), Some(Signal::SIGKILL));
+    }
+}
+
+impl ServerData {
+    fn set_parallel(&mut self, parallel: i32) {
+        self.opts.parallel = parallel;
+        match self.state {
+            State::Running { ref runner } => runner.set_concurrency_limit(parallel.into()),
+            State::Waiting { ref wait_handle } => {
+                wait_handle.set_concurrency_limit(parallel.into())
+            }
+        }
+    }
+
+    fn handle_run(&mut self, run_spec: ServerRunSpec) -> resp::Run {
+        debug!("handle_run");
+        match self.state {
+            State::Running { ref runner } => {
+                runner.add(run_spec);
+                Ok(())
+            }
+            State::Waiting { .. } => {
+                Err(Error::new("wait in progress. No new command can be run."))
+            }
+        }
+    }
+
+    fn handle_wait(&mut self) -> WaitHandle {
+        ::take_mut::take(&mut self.state, |state| match state {
+            State::Running { runner } => State::Waiting {
+                wait_handle: runner.wait_handle(),
+            },
+            state => state,
+        });
+        self.get_wait_handle()
+            .expect("expected to be in wait state")
+    }
+
+    fn get_wait_handle(&self) -> Option<WaitHandle> {
+        if let State::Waiting { wait_handle } = &self.state {
+            Some(wait_handle.clone())
+        } else {
+            None
+        }
     }
 }
 

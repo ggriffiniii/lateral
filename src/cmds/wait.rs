@@ -1,8 +1,5 @@
 use std::os::unix::net::UnixStream;
-use {
-    net::{read_resp, write_req},
-    Error, GlobalOpts, Req, ShutdownResp, WaitResp,
-};
+use {resp, Error, GlobalOpts, Req};
 
 /// Options for the wait subcommand.
 #[derive(StructOpt, Debug)]
@@ -13,20 +10,20 @@ pub struct Opts {
 
 pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
     debug!("wait command");
-    let mut socket = UnixStream::connect(&global_opts.socket_path())?;
-    let res = wait(&mut socket);
+    let socket = UnixStream::connect(&global_opts.socket_path())?;
+    let res = wait(&socket);
 
     if !opts.no_shutdown {
-        if let Err(e) = shutdown(&mut socket) {
+        if let Err(e) = shutdown(&socket) {
             debug!("failed to shutdown the server: {}", e)
         }
     }
     res
 }
 
-fn wait(socket: &mut UnixStream) -> Result<(), Error> {
-    write_req(socket, &Req::Wait)?;
-    let resp: WaitResp = read_resp(socket)?;
+fn wait(socket: &UnixStream) -> Result<(), Error> {
+    Req::Wait.write_to(socket)?;
+    let resp: resp::Wait = resp::read_from(socket)?;
     if resp {
         Ok(())
     } else {
@@ -38,7 +35,7 @@ fn wait(socket: &mut UnixStream) -> Result<(), Error> {
     }
 }
 
-fn shutdown(socket: &mut UnixStream) -> Result<(), Error> {
-    write_req(socket, &Req::Shutdown)?;
-    read_resp::<_, ShutdownResp>(socket)?
+fn shutdown(socket: &UnixStream) -> Result<(), Error> {
+    Req::Shutdown.write_to(socket)?;
+    resp::read_from::<_, resp::Shutdown>(socket)?
 }

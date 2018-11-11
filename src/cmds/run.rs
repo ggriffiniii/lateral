@@ -1,10 +1,7 @@
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::{io::RawFd, net::UnixStream};
-use {
-    net::{read_resp, write_req},
-    ClientRunSpec, Error, GlobalOpts, Req, RunResp,
-};
+use {resp, ClientRunSpec, Error, GlobalOpts, Req};
 
 /// Options for the run subcommand.
 #[derive(StructOpt, Debug)]
@@ -21,16 +18,13 @@ pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
     } else {
         return Err(Error::new("no arguments provided"));
     };
-    let mut socket = UnixStream::connect(&global_opts.socket_path())?;
-    write_req(
-        &mut socket,
-        &Req::Run(ClientRunSpec {
-            args: (exe, args),
-            env: env::vars_os().collect(),
-            fds,
-        }),
-    )?;
-    let resp: RunResp = read_resp(&socket)?;
+    let socket = UnixStream::connect(&global_opts.socket_path())?;
+    Req::Run(ClientRunSpec {
+        args: (exe, args),
+        env: env::vars_os().collect(),
+        fds,
+    }).write_to(&socket)?;
+    let resp: resp::Run = resp::read_from(&socket)?;
     resp
 }
 
