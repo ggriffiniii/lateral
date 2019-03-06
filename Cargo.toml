@@ -29,4 +29,4 @@ stoppable_listener = { path = "./stoppable_listener", version = "0.1.0" }
 structopt = "0.2"
 structopt-derive = "0.2"
 take_mut = "0.2"
-workpool = { path = "./workpool", version = "0.1.0" }
+workpool = { path = "./workpool", version = "0.1.1" }

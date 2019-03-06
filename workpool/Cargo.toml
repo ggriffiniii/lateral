@@ -1,6 +1,6 @@
 [package]
 name = "workpool"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Glenn Griffin <ggriffiniii@gmail.com>"]
 description = "Distribute work to a set of threads and wait for completion"
 documentation = "https://docs.rs/workpool/"
@@ -9,4 +9,4 @@ license = "MIT"
 
 [dependencies]
 crossbeam-channel = "0.2"
-published_value = { path = "../published_value", version = "0.1.1" }
+published_value = { path = "../published_value", version = "0.1.2" }
