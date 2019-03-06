@@ -167,7 +167,7 @@ impl<I, W, R> Builder<Yes<I>, Yes<W>, Yes<R>, Yes<i64>> {
         W: Worker<I> + Send + Sync + 'static,
         W::Output: Send + Debug,
         R: Reducer<W::Output> + Send + 'static,
-        R::Output: Send + Debug,
+        R::Output: Send + Sync + Debug,
     {
         DynamicPool::create(
             self.worker.value(),
@@ -183,7 +183,7 @@ impl<I, W, R> Builder<Yes<I>, Yes<W>, Yes<R>, Yes<i64>> {
         W: Worker<I> + Send + Sync + 'static,
         W::Output: Send + Debug,
         R: Reducer<W::Output> + Send + 'static,
-        R::Output: Send + Debug,
+        R::Output: Send + Sync + Debug,
     {
         StaticPool::create(
             self.worker.value(),

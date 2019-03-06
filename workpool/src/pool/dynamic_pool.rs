@@ -26,7 +26,7 @@ where
     W: Worker<I> + Send + Sync + 'static,
     W::Output: Send,
     R: Reducer<W::Output> + Send + 'static,
-    R::Output: Send,
+    R::Output: Send + Sync,
 {
     pub(super) fn create(worker: W, reducer: R, concurrency_limit: i64) -> Self {
         let (work_sender, work_receiver) = channel::unbounded();

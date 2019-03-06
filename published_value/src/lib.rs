@@ -145,7 +145,7 @@ impl<T> Value<T> {
     }
 }
 
-unsafe impl<T> Sync for Value<T> {}
+unsafe impl<T> Sync for Value<T> where T: Sync {}
 
 impl<T> Debug for Value<T>
 where
