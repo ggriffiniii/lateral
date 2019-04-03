@@ -1,10 +1,10 @@
+use crate::{resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
 use crossbeam_channel as channel;
 use crossbeam_utils::thread;
 use std;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex, MutexGuard};
 use workpool;
-use crate::{resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
 
 // Options for the start subcommand.
 #[derive(StructOpt, Debug, Clone)]

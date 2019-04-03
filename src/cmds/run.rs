@@ -1,7 +1,7 @@
+use crate::{resp, ClientRunSpec, Error, GlobalOpts, Req};
 use std::env;
 use std::ffi::OsString;
 use std::os::unix::{io::RawFd, net::UnixStream};
-use crate::{resp, ClientRunSpec, Error, GlobalOpts, Req};
 
 /// Options for the run subcommand.
 #[derive(StructOpt, Debug)]
@@ -23,7 +23,8 @@ pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
         args: (exe, args),
         env: env::vars_os().collect(),
         fds,
-    }).write_to(&socket)?;
+    })
+    .write_to(&socket)?;
     let resp: resp::Run = resp::read_from(&socket)?;
     resp
 }

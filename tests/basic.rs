@@ -90,13 +90,12 @@ mod max_paralleism {
             #[test]
             fn $testname() {
                 let th = TestHarness::new();
-                assert!(
-                    th.run_lateral_cmd(&["config", "--parallel", &format!("{}", $max_parallelism)])
-                        .success()
-                );
+                assert!(th
+                    .run_lateral_cmd(&["config", "--parallel", &format!("{}", $max_parallelism)])
+                    .success());
                 for _ in 0..$num_commands {
-                    assert!(
-                        th.run_lateral_cmd(&[
+                    assert!(th
+                        .run_lateral_cmd(&[
                             "run",
                             "--",
                             "/bin/bash",
@@ -105,8 +104,8 @@ mod max_paralleism {
                                 "echo started >> {0}; sleep 1; echo finished >> {0}",
                                 th.log_path().to_string_lossy()
                             )
-                        ]).success()
-                    );
+                        ])
+                        .success());
                 }
                 assert!(th.run_lateral_cmd(&["wait"]).success());
                 let logfile = th.log_reader();
@@ -119,7 +118,8 @@ mod max_paralleism {
                             unexpected => panic!("{:?}", unexpected),
                         }
                         Some(*running)
-                    }).max()
+                    })
+                    .max()
                     .unwrap();
                 assert!(max_parallelism <= $max_parallelism);
             }
@@ -142,8 +142,8 @@ fn pause() {
     let th = TestHarness::new();
     assert!(th.run_lateral_cmd(&["config", "--parallel", "3"]).success());
     for _ in 0..5 {
-        assert!(
-            th.run_lateral_cmd(&[
+        assert!(th
+            .run_lateral_cmd(&[
                 "run",
                 "--",
                 "/bin/bash",
@@ -152,8 +152,8 @@ fn pause() {
                     "echo started >> {0}; sleep 5; echo finished >> {0}",
                     th.log_path().to_string_lossy()
                 )
-            ]).success()
-        );
+            ])
+            .success());
     }
     let mut wait_cmd = th.lateral_cmd(&["wait"]).spawn().unwrap();
     thread::sleep(time::Duration::from_secs(2));
@@ -171,7 +171,8 @@ fn pause() {
                 unexpected => panic!("{:?}", unexpected),
             }
             Some(*running)
-        }).last()
+        })
+        .last()
         .unwrap();
     assert_eq!(0, currently_running);
     assert!(th.run_lateral_cmd(&["config", "--parallel", "3"]).success());
@@ -187,8 +188,8 @@ fn pause_from_beginning() {
     let th = TestHarness::new();
     assert!(th.run_lateral_cmd(&["config", "--parallel", "0"]).success());
     for _ in 0..5 {
-        assert!(
-            th.run_lateral_cmd(&[
+        assert!(th
+            .run_lateral_cmd(&[
                 "run",
                 "--",
                 "/bin/bash",
@@ -197,8 +198,8 @@ fn pause_from_beginning() {
                     "echo started >> {0}; echo finished >> {0}",
                     th.log_path().to_string_lossy()
                 )
-            ]).success()
-        );
+            ])
+            .success());
     }
     let mut wait_cmd = th.lateral_cmd(&["wait"]).spawn().unwrap();
     thread::sleep(time::Duration::from_secs(2));
@@ -209,10 +210,9 @@ fn pause_from_beginning() {
         .count();
     assert_eq!(0, commands_started);
     assert!(wait_cmd.try_wait().unwrap().is_none());
-    assert!(
-        th.run_lateral_cmd(&["config", "--parallel", "10"])
-            .success()
-    );
+    assert!(th
+        .run_lateral_cmd(&["config", "--parallel", "10"])
+        .success());
     assert!(wait_cmd.wait().unwrap().success());
     let logfile = th.log_reader();
     let commands_finished = logfile
@@ -225,13 +225,11 @@ fn pause_from_beginning() {
 #[test]
 fn exit_status() {
     let th = TestHarness::new();
-    assert!(
-        th.run_lateral_cmd(&["run", "--", "/bin/bash", "-c", "exit 0"])
-            .success()
-    );
-    assert!(
-        th.run_lateral_cmd(&["run", "--", "/bin/bash", "-c", "exit 42"])
-            .success()
-    );
+    assert!(th
+        .run_lateral_cmd(&["run", "--", "/bin/bash", "-c", "exit 0"])
+        .success());
+    assert!(th
+        .run_lateral_cmd(&["run", "--", "/bin/bash", "-c", "exit 42"])
+        .success());
     assert!(!th.run_lateral_cmd(&["wait"]).success());
 }

@@ -1,5 +1,5 @@
-use std::os::unix::net::UnixStream;
 use crate::{resp, Error, GlobalOpts, Req};
+use std::os::unix::net::UnixStream;
 
 /// Options for the wait subcommand.
 #[derive(StructOpt, Debug)]

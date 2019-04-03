@@ -327,7 +327,8 @@ impl ServerReq {
                 } else {
                     None
                 }
-            }).flat_map(|fds| fds);
+            })
+            .flat_map(|fds| fds);
         let mut fd_count = fds.len();
         fds.extend(received_fds);
         fd_count = fds.len() - fd_count;
@@ -357,7 +358,8 @@ impl ClientReq {
                         .map(|(subprocess_fd, server_fd)| FdLink {
                             subprocess_fd,
                             server_fd,
-                        }).collect(),
+                        })
+                        .collect(),
                 })
             }
             Req::Wait => Req::Wait,
@@ -392,10 +394,10 @@ impl<'a> From<&'a ServerReq> for ClientReq {
 }
 
 mod resp {
+    use crate::Error;
     use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
     use std::fmt::Debug;
     use std::io;
-    use crate::Error;
     /// Response types for each of the valid requests.
     pub(crate) type Config = ();
     pub(crate) type Run = Result<(), Error>;

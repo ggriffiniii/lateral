@@ -1,5 +1,5 @@
-use std::os::unix::net::UnixStream;
 use crate::{resp, Error, GlobalOpts, Req};
+use std::os::unix::net::UnixStream;
 
 /// Options for the config subcommand.
 #[derive(StructOpt, Debug)]
@@ -13,7 +13,8 @@ pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
     let socket = UnixStream::connect(&global_opts.socket_path())?;
     Req::Config {
         parallel: opts.parallel,
-    }.write_to(&socket)?;
+    }
+    .write_to(&socket)?;
     resp::read_from::<_, resp::Config>(&socket)?;
     Ok(())
 }

@@ -35,7 +35,8 @@ where
         let threads: Vec<_> = (0..concurrency_limit)
             .map(|_| {
                 Self::start_worker_thread(worker.clone(), reducer.clone(), work_receiver.clone())
-            }).map(JoinOnDrop::wrap)
+            })
+            .map(JoinOnDrop::wrap)
             .collect();
         StaticPool {
             worker: PhantomData {},
