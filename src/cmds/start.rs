@@ -1,8 +1,8 @@
 use crossbeam_channel as channel;
+use crossbeam_utils::thread;
 use std;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread;
 use workpool;
 use crate::{resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
 
@@ -33,11 +33,11 @@ pub fn execute(global_opts: &GlobalOpts, opts: &Opts) -> Result<(), Error> {
 }
 
 #[derive(Debug, Clone)]
-struct Server(Arc<Mutex<ServerData>>);
+struct Server<'a>(Arc<Mutex<ServerData<'a>>>);
 
 #[derive(Debug)]
-struct ServerData {
-    global_opts: GlobalOpts,
+struct ServerData<'a> {
+    global_opts: &'a GlobalOpts,
     opts: Opts,
     stop_handle: stoppable_listener::StopHandle,
     state: State,
@@ -52,8 +52,8 @@ enum State {
     Waiting { wait_handle: WaitHandle },
 }
 
-impl Server {
-    fn lock(&self) -> MutexGuard<ServerData> {
+impl<'a> Server<'a> {
+    fn lock(&self) -> MutexGuard<ServerData<'a>> {
         self.0.lock().expect("mutex is poisoned")
     }
 
@@ -66,7 +66,7 @@ impl Server {
             .set_concurrency_limit(opts.parallel.into())
             .create_dynamic_pool();
         let srv = Server(Arc::new(Mutex::new(ServerData {
-            global_opts: (*global_opts).clone(),
+            global_opts,
             opts,
             stop_handle,
             state: State::Running { runner },
@@ -80,38 +80,41 @@ impl Server {
         &self,
         incoming: &mut stoppable_listener::Listener<UnixListener>,
     ) -> Result<(), Error> {
-        let (tx, rx) = channel::bounded(0);
-        let mut threads = Vec::new();
-        for accept_result in incoming {
-            let (socket, _addr) = accept_result?;
-            select! {
-                send(tx, socket) => {
-                    debug!("reusing idle thread");
-                },
-                default => {
-                    let thread = thread::spawn({
-                        let this = self.clone();
-                        let rx = rx.clone();
-                        move || {
-                            for socket in rx {
-                                if let Err(e) = this.handle_socket(socket) {
-                                    debug!("Error handling socket: {}", e);
+        let mut thread_count = 0;
+        let _ = thread::scope(|scope| {
+            let (tx, rx) = channel::bounded(0);
+            for accept_result in incoming {
+                let socket = match accept_result {
+                    Ok((socket, _addr)) => socket,
+                    Err(err) => {
+                        debug!("accept() failed: {}", err);
+                        return;
+                    }
+                };
+                select! {
+                    send(tx, socket) => {
+                        debug!("reusing idle thread");
+                    },
+                    default => {
+                        debug!("starting thread {}", thread_count);
+                        thread_count += 1;
+                        scope.spawn({
+                            let rx = rx.clone();
+                            move |_| {
+                                for socket in rx {
+                                    if let Err(e) = self.handle_socket(socket) {
+                                        debug!("Error handling socket: {}", e);
+                                    }
+                                    debug!("socket closed");
                                 }
-                                debug!("socket closed");
                             }
-                        }
-                    });
-                    threads.push(thread);
-                    debug!("starting thread {}", threads.len());
-                    tx.send(socket);
-                },
-            };
-        }
-        debug!("listener stopped. waiting for current connections to terminate.");
-        drop(tx);
-        for thread in threads {
-            let _ = thread.join();
-        }
+                        });
+                        tx.send(socket);
+                    }
+                }
+            }
+            drop(tx);
+        });
         Ok(())
     }
 
@@ -181,7 +184,7 @@ impl Server {
     }
 }
 
-impl ServerData {
+impl<'a> ServerData<'a> {
     fn set_parallel(&mut self, parallel: i32) {
         self.opts.parallel = parallel;
         match self.state {
@@ -225,7 +228,7 @@ impl ServerData {
     }
 }
 
-impl std::ops::Drop for ServerData {
+impl<'a> std::ops::Drop for ServerData<'a> {
     fn drop(&mut self) {
         debug!("dropping Server");
         if let Err(e) = std::fs::remove_file(&self.global_opts.socket_path()) {
