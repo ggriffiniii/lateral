@@ -113,7 +113,7 @@ where
     /// Collect the results of the workout output into the specified collection.
     /// Note that set_reducer and collect_into are mutually exclusive. You must
     /// use one or the other, but not both.
-    #[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::type_complexity))]
     pub fn collect_into<C>(
         self,
     ) -> Builder<
