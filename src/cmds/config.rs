@@ -1,5 +1,5 @@
 use std::os::unix::net::UnixStream;
-use {resp, Error, GlobalOpts, Req};
+use crate::{resp, Error, GlobalOpts, Req};
 
 /// Options for the config subcommand.
 #[derive(StructOpt, Debug)]

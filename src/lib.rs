@@ -395,7 +395,7 @@ mod resp {
     use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
     use std::fmt::Debug;
     use std::io;
-    use Error;
+    use crate::Error;
     /// Response types for each of the valid requests.
     pub(crate) type Config = ();
     pub(crate) type Run = Result<(), Error>;
@@ -437,8 +437,8 @@ mod resp {
 }
 
 pub fn execute(opts: &Opts) -> Result<(), Error> {
-    use cmds::{config, getpid, kill, run, start, wait};
-    use CommandOpts::{Config, GetPid, Kill, Run, Start, Wait};
+    use crate::cmds::{config, getpid, kill, run, start, wait};
+    use crate::CommandOpts::{Config, GetPid, Kill, Run, Start, Wait};
     match opts.cmd {
         Config(ref config_opts) => config::execute(&opts.global_opts, config_opts),
         Start(ref start_opts) => start::execute(&opts.global_opts, start_opts),

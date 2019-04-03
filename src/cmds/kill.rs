@@ -1,5 +1,5 @@
 use std::os::unix::net::UnixStream;
-use {Error, GlobalOpts, Req};
+use crate::{Error, GlobalOpts, Req};
 
 pub fn execute(global_opts: &GlobalOpts) -> Result<(), Error> {
     debug!("kill command");

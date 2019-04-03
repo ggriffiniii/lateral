@@ -1,5 +1,5 @@
 use std::os::unix::net::UnixStream;
-use {resp, Error, GlobalOpts, Req};
+use crate::{resp, Error, GlobalOpts, Req};
 
 pub fn execute(global_opts: &GlobalOpts) -> Result<(), Error> {
     debug!("getpid command");

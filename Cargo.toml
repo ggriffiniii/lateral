@@ -9,6 +9,7 @@ description = "A simple process parallelizer to make lives better at the command
 documentation = "https://docs.rs/lateral/"
 repository = "https://github.com/ggriffiniii/lateral"
 license = "MIT"
+edition = "2018"
 
 [dev-dependencies]
 tempfile = "3"

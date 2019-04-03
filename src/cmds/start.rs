@@ -4,7 +4,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use workpool;
-use {resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
+use crate::{resp, Error, GlobalOpts, ServerReq, ServerRunSpec, SocketClosedOr};
 
 // Options for the start subcommand.
 #[derive(StructOpt, Debug, Clone)]
@@ -116,7 +116,7 @@ impl Server {
     }
 
     fn handle_socket(&self, mut socket: UnixStream) -> Result<(), Error> {
-        use Req::*;
+        use crate::Req::*;
         debug!("new socket from: {:?}", socket.peer_addr());
         loop {
             let req = match ServerReq::read_from(&socket) {
