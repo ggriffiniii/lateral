@@ -8,5 +8,5 @@ repository = "https://github.com/ggriffiniii/lateral"
 license = "MIT"
 
 [dependencies]
-crossbeam-channel = "0.2"
+crossbeam-channel = "0.5"
 published_value = { path = "../published_value", version = "0.1.2" }

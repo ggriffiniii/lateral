@@ -92,7 +92,7 @@ impl<'a> Server<'a> {
                     }
                 };
                 select! {
-                    send(tx, socket) => {
+                    send(tx, socket) -> _ => {
                         debug!("reusing idle thread");
                     },
                     default => {

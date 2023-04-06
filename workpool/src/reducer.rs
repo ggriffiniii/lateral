@@ -35,7 +35,7 @@ impl<I, O> CollectReducer<I, O> {
             // None is reached. Even in those cases the channel should continue
             // to be drained, ignoring the values, to avoid blocking the
             // producer thread.
-            rx.for_each(drop);
+            rx.into_iter().for_each(drop);
             output
         }));
         CollectReducer {

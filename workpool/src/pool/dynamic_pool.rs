@@ -240,30 +240,30 @@ where
 
     fn wait_while_no_work_pending(&mut self) -> LastWorkReceived<I> {
         select! {
-            recv(self.change_concurrency_limit_receiver, new_limit) => {
+            recv(self.change_concurrency_limit_receiver) -> new_limit => {
                 self.concurrency_limit = new_limit.expect("change_concurrency_limit closed unexpectedly");
                 for _ in self.concurrency_limit .. self.threads.len() as i64 {
                     self.kill_thread_req_sender.send(());
                 }
                 LastWorkReceived::None
             },
-            recv(self.kill_thread_ack_receiver, thread_id) => {
-                if let Some(thread_id) = thread_id {
+            recv(self.kill_thread_ack_receiver) -> thread_id => {
+                if let Ok(thread_id) = thread_id {
                     let idx = self.threads.iter().position(|ref handle| handle.thread().id() == thread_id).expect("thread not found in active threads");
                     self.threads.swap_remove(idx);
                 }
                 LastWorkReceived::None
             },
-            recv(self.work_output_receiver, output) => {
+            recv(self.work_output_receiver) -> output => {
                 self.num_active_threads -= 1;
                 let output = output.expect("work_output_receiver closed while work remaining");
                 self.reducer.reduce(output);
                 LastWorkReceived::None
             },
-            recv(self.work_receiver, work) => {
+            recv(self.work_receiver) -> work => {
                 match work {
-                    Some(work) => LastWorkReceived::Work(work),
-                    None => LastWorkReceived::Finished,
+                    Ok(work) => LastWorkReceived::Work(work),
+                    Err(_)=> LastWorkReceived::Finished,
                 }
             },
         }
@@ -280,28 +280,28 @@ where
             ));
         }
         select! {
-            recv(self.change_concurrency_limit_receiver, new_limit) => {
+            recv(self.change_concurrency_limit_receiver) -> new_limit => {
                 self.concurrency_limit = new_limit.expect("change_concurrency_limit closed unexpectedly");
                 for _ in self.concurrency_limit .. self.threads.len() as i64 {
                     self.kill_thread_req_sender.send(());
                 }
                 LastWorkReceived::Work(work)
             },
-            recv(self.kill_thread_ack_receiver, thread_id) => {
-                if let Some(thread_id) = thread_id {
+            recv(self.kill_thread_ack_receiver) -> thread_id => {
+                if let Ok(thread_id) = thread_id {
                     let idx = self.threads.iter().position(|ref handle| handle.thread().id() == thread_id).expect("thread not found in active threads");
                     let handle = self.threads.swap_remove(idx);
                     let _ = handle.join();
                 }
                 LastWorkReceived::Work(work)
             },
-            recv(self.work_output_receiver, output) => {
+            recv(self.work_output_receiver) -> output => {
                 self.num_active_threads -= 1;
                 let output = output.expect("work_output_receiver closed while work remaining");
                 self.reducer.reduce(output);
                 LastWorkReceived::Work(work)
             },
-            send(self.work_input_sender.as_ref().expect("work_input_sender dropped while work remaining"), work) => {
+            send(self.work_input_sender.as_ref().expect("work_input_sender dropped while work remaining"), work) -> _  => {
                 self.num_active_threads += 1;
                 LastWorkReceived::None
             },
@@ -313,25 +313,25 @@ where
         self.thread_creator = None;
         loop {
             select! {
-                recv(self.change_concurrency_limit_receiver, new_limit) => {
+                recv(self.change_concurrency_limit_receiver) -> new_limit => {
                     self.concurrency_limit = new_limit.expect("change_concurrency_limit closed unexpectedly");
                     for _ in self.concurrency_limit .. self.threads.len() as i64 {
                         self.kill_thread_req_sender.send(());
                     }
                 },
-                recv(self.kill_thread_ack_receiver, thread_id) => {
-                    if let Some(thread_id) = thread_id {
+                recv(self.kill_thread_ack_receiver) -> thread_id => {
+                    if let Ok(thread_id) = thread_id {
                         let idx = self.threads.iter().position(|ref handle| handle.thread().id() == thread_id).expect("thread not found in active threads");
                         self.threads.swap_remove(idx);
                     }
                 },
-                recv(self.work_output_receiver, output) => {
+                recv(self.work_output_receiver) -> output => {
                     match output {
-                        Some(output) => {
+                        Ok(output) => {
                             self.num_active_threads -= 1;
                             self.reducer.reduce(output)
                         },
-                        None => {
+                        Err(_) => {
                             for thread in self.threads.drain(..) {
                                 let _ = thread.join();
                             }
@@ -368,21 +368,21 @@ fn worker_loop<W, I>(
     W: Worker<I>,
 {
     loop {
-        if kill_req.try_recv().is_some() {
+        if kill_req.try_recv().is_ok() {
             kill_ack.send(thread::current().id());
             return;
         }
         select! {
-            recv(kill_req, _) => {
+            recv(kill_req) -> _ => {
                 kill_ack.send(thread::current().id());
                 return;
             },
-            recv(work_receiver, work_item) => match work_item {
-                Some(work) => {
+            recv(work_receiver) -> work_item => match work_item {
+                Ok(work) => {
                     let work_output = worker.run(work);
                     work_sender.send(work_output);
                 },
-                None => {
+                Err(_) => {
                     return
                 },
             },
